@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import GestionUsuarios from "./views/GestionUsuarios";
 import GestionVotantes from "./views/GestionVotantes";
@@ -764,7 +765,9 @@ export default function App() {
   const [view,    setView]    = useState("estructura");
   const [msgTarget, setMsg]   = useState(null);
 
-  const { votantes: votantesCtx, usuarios } = useApp();
+  const { votantes: votantesCtx, usuarios, currentUser, logout } = useApp();
+  const navigate = useNavigate();
+  const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
 
   const TABS = [
     { id:"estructura",      icon:"🏛️", label:"Estructura"    },
@@ -810,6 +813,17 @@ export default function App() {
             style={{ background:"#f59e0b22", border:"1px solid #f59e0b44", borderRadius:10, padding:"7px 16px", color:"#f59e0b", fontSize:12, fontWeight:800, cursor:"pointer" }}>
             📡 Difusión global
           </button>
+          {/* Usuario actual + logout */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:8, paddingLeft:12, borderLeft:"1px solid #1e3a6e" }}>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#e2e8f0" }}>{currentUser?.nombre?.split(" ")[0]}</div>
+              <div style={{ fontSize:9, color:"#4b6080", textTransform:"uppercase" }}>{currentUser?.rol}</div>
+            </div>
+            <button onClick={handleLogout} title="Cerrar sesión"
+              style={{ background:"#ef444420", border:"1px solid #ef444444", borderRadius:8, padding:"6px 10px", color:"#ef4444", fontSize:11, fontWeight:700, cursor:"pointer" }}>
+              ⏏ Salir
+            </button>
+          </div>
         </div>
       </div>
 

@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useApp } from "../../context/AppContext";
 
 // ═══════════════════════════════════════════════════════
 // DATA — El líder solo ve SUS votantes
@@ -672,6 +674,9 @@ function ScreenMensaje({ votantes, onBack }) {
 // ROOT — MOBILE APP
 // ═══════════════════════════════════════════════════════
 export default function LiderMovil() {
+  const { logout } = useApp();
+  const navigate   = useNavigate();
+  const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
   const [screen,    setScreen]   = useState("home");
   const [votantes,  setVotantes] = useState(INIT_VOTANTES);
   const [selected,  setSelected] = useState(null);
@@ -737,8 +742,14 @@ export default function LiderMovil() {
               <div style={{ fontSize:9, color:"#475569" }}>{LIDER.tipo==="urbano"?"🏙️":"🌿"} {LIDER.zona.length > 26 ? LIDER.zona.slice(0,26)+"…" : LIDER.zona}</div>
             </div>
           </div>
-          <div style={{ background:"#f59e0b18", border:"1px solid #f59e0b40", borderRadius:8, padding:"4px 10px" }}>
-            <span style={{ fontSize:10, fontWeight:800, color:"#f59e0b" }}>{votantes.length} votantes</span>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ background:"#f59e0b18", border:"1px solid #f59e0b40", borderRadius:8, padding:"4px 10px" }}>
+              <span style={{ fontSize:10, fontWeight:800, color:"#f59e0b" }}>{votantes.length} votantes</span>
+            </div>
+            <button onClick={handleLogout} title="Cerrar sesión"
+              style={{ background:"#ef444420", border:"1px solid #ef444444", borderRadius:8, padding:"4px 8px", color:"#ef4444", fontSize:11, cursor:"pointer" }}>
+              ⏏
+            </button>
           </div>
         </div>
 

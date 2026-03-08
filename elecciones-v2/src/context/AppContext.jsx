@@ -77,6 +77,20 @@ export function AppProvider({ children }) {
   const [lideres,    setLideres]    = useState(LIDERES_INIT);
   const [votantes,   setVotantes]   = useState(VOTANTES_INIT);
   const [usuarios,   setUsuarios]   = useState(USUARIOS_INIT);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // ── AUTH ─────────────────────────────────────────────
+  // Contraseña demo universal: voto2027
+  const DEMO_PASSWORD = "voto2027";
+  const login = (email, password) => {
+    if (password !== DEMO_PASSWORD) return { ok: false, error: "Contraseña incorrecta" };
+    const user = usuarios.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (!user)    return { ok: false, error: "Usuario no encontrado" };
+    if (!user.activo) return { ok: false, error: "Cuenta inactiva. Contacte al administrador." };
+    setCurrentUser(user);
+    return { ok: true, user };
+  };
+  const logout = () => setCurrentUser(null);
 
   // ── CANDIDATOS ──────────────────────────────────────
   const addCandidato    = (c)  => setCandidatos(p => [...p, { ...c, id:`C-${String(Date.now()).slice(-4)}` }]);
@@ -109,6 +123,7 @@ export function AppProvider({ children }) {
       lideres,    addLider,    updateLider,    deleteLider,
       votantes,   addVotante,  updateVotante,  deleteVotante,
       usuarios,   addUsuario,  updateUsuario,  deleteUsuario, toggleActivo,
+      currentUser, login, logout,
     }}>
       {children}
     </AppContext.Provider>
