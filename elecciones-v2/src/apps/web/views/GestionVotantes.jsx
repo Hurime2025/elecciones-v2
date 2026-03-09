@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApp } from "../../../context/AppContext";
+import { votantesToCSV, descargarCSV, descargarPlantilla, parsearCSV } from "../../../utils/votantesIO";
 
 const ESTADO_META = {
   confirmado:    { label:"Confirmado",    color:"#10b981", bg:"#10b98120" },
@@ -229,14 +230,169 @@ function ModalConfirm({ nombre, onConfirm, onClose }) {
 }
 
 // ─── Vista principal ───────────────────────────────────────────
+// ─── Modal Importación ─────────────────────────────────────────
+function ModalImportar({ votantesActuales, onImportar, onClose }) {
+  const [resultado,  setResultado]  = useState(null); // { validos, errores, duplicados }
+  const [importing,  setImporting]  = useState(false);
+  const fileRef = useRef();
+
+  const leerArchivo = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const texto = ev.target.result;
+      const parsed = parsearCSV(texto, votantesActuales);
+      setResultado(parsed);
+    };
+    reader.readAsText(file, "UTF-8");
+  };
+
+  const confirmarImport = () => {
+    if (!resultado?.validos?.length) return;
+    setImporting(true);
+    onImportar(resultado.validos);
+    onClose();
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#00000090", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:"#0d1b3e", border:"1px solid #1e3a6e", borderRadius:18, width:560, maxHeight:"90vh", overflowY:"auto", padding:28 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:"#fff" }}>📥 Importar votantes</h2>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}>✕</button>
+        </div>
+
+        {/* Paso 1 – Plantilla */}
+        <div style={{ background:"#060c1a", borderRadius:12, padding:16, marginBottom:16 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#e2e8f0", marginBottom:6 }}>
+            Paso 1 — Descarga la plantilla oficial
+          </div>
+          <p style={{ fontSize:12, color:"#64748b", margin:"0 0 10px" }}>
+            Usa siempre la plantilla para evitar errores de formato. Incluye filas de ejemplo y las instrucciones dentro del archivo.
+          </p>
+          <Btn ghost onClick={descargarPlantilla}>⬇ Descargar plantilla CSV</Btn>
+        </div>
+
+        {/* Paso 2 – Seleccionar archivo */}
+        <div style={{ background:"#060c1a", borderRadius:12, padding:16, marginBottom:16 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"#e2e8f0", marginBottom:10 }}>
+            Paso 2 — Selecciona el archivo CSV completo
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            onChange={leerArchivo}
+            style={{ display:"none" }}
+          />
+          <Btn ghost onClick={() => fileRef.current.click()}>📂 Seleccionar archivo .csv</Btn>
+          {resultado && (
+            <span style={{ marginLeft:12, fontSize:12, color:"#64748b" }}>
+              Archivo leído ✓
+            </span>
+          )}
+        </div>
+
+        {/* Paso 3 – Vista previa */}
+        {resultado && (
+          <div style={{ background:"#060c1a", borderRadius:12, padding:16, marginBottom:16 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#e2e8f0", marginBottom:12 }}>
+              Paso 3 — Vista previa
+            </div>
+
+            {/* Resumen */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8, marginBottom:14 }}>
+              {[
+                { label:"Válidos para importar", value:resultado.validos.length,    color:"#10b981" },
+                { label:"Con errores",           value:resultado.errores.length,    color:"#ef4444" },
+                { label:"Duplicados (omitidos)", value:resultado.duplicados.length, color:"#f59e0b" },
+              ].map(s => (
+                <div key={s.label} style={{ background:"#0d1b3e", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
+                  <div style={{ fontSize:20, fontWeight:900, color:s.color }}>{s.value}</div>
+                  <div style={{ fontSize:9, color:"#4b6080", fontWeight:700 }}>{s.label.toUpperCase()}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Errores */}
+            {resultado.errores.length > 0 && (
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"#ef4444", marginBottom:6 }}>⚠ Filas con errores (no se importarán):</div>
+                <div style={{ maxHeight:100, overflowY:"auto" }}>
+                  {resultado.errores.map((e, i) => (
+                    <div key={i} style={{ fontSize:11, color:"#94a3b8", padding:"3px 0", borderBottom:"1px solid #1e3a6e20" }}>
+                      Fila {e.fila} {e.nombre ? `— ${e.nombre}` : ""}: <span style={{ color:"#ef4444" }}>{e.msg}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Duplicados */}
+            {resultado.duplicados.length > 0 && (
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:"#f59e0b", marginBottom:6 }}>🔁 Duplicados omitidos (cédula ya existe):</div>
+                <div style={{ maxHeight:80, overflowY:"auto" }}>
+                  {resultado.duplicados.map((d, i) => (
+                    <div key={i} style={{ fontSize:11, color:"#94a3b8", padding:"3px 0" }}>
+                      Fila {d.fila} — {d.nombre} (CC {d.cedula})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Previsualización de válidos */}
+            {resultado.validos.length > 0 && (
+              <div>
+                <div style={{ fontSize:11, fontWeight:700, color:"#10b981", marginBottom:6 }}>
+                  ✓ Primeros registros a importar:
+                </div>
+                <div style={{ maxHeight:120, overflowY:"auto" }}>
+                  {resultado.validos.slice(0, 5).map((v, i) => (
+                    <div key={i} style={{ fontSize:11, color:"#94a3b8", padding:"4px 0", borderBottom:"1px solid #1e3a6e20", display:"flex", gap:16 }}>
+                      <span style={{ color:"#e2e8f0", fontWeight:600 }}>{v.nombre}</span>
+                      <span>CC {v.cedula}</span>
+                      <span>{v.phone}</span>
+                      <span style={{ color:"#64748b" }}>{v.barrio}</span>
+                    </div>
+                  ))}
+                  {resultado.validos.length > 5 && (
+                    <div style={{ fontSize:11, color:"#4b6080", padding:"4px 0" }}>
+                      … y {resultado.validos.length - 5} más.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+          <Btn ghost onClick={onClose}>Cancelar</Btn>
+          <Btn
+            disabled={!resultado?.validos?.length || importing}
+            onClick={confirmarImport}
+          >
+            ✓ Importar {resultado?.validos?.length ?? 0} votantes
+          </Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Vista principal ───────────────────────────────────────────
 export default function GestionVotantes() {
-  const { votantes, lideres, candidatos, addVotante, updateVotante, deleteVotante } = useApp();
+  const { votantes, lideres, candidatos, addVotante, updateVotante, deleteVotante, addVotantesBulk } = useApp();
   const [search,       setSearch]      = useState("");
   const [liderFilter,  setLiderFilter]  = useState("all");
   const [campFilter,   setCampFilter]   = useState("all");
   const [modal,        setModal]        = useState(null);
   const [detalle,      setDetalle]      = useState(null);
   const [confirm,      setConfirm]      = useState(null);
+  const [showImport,   setShowImport]   = useState(false);
 
   const filtered = votantes.filter(v => {
     const matchSearch = !search
@@ -285,6 +441,10 @@ export default function GestionVotantes() {
           <option value="GOB">Gobernador</option>
           {candidatos.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
         </select>
+        <Btn ghost onClick={() => setShowImport(true)}>📥 Importar</Btn>
+        <Btn ghost onClick={() => descargarCSV(votantesToCSV(votantes), `votantes_${new Date().toISOString().slice(0,10)}.csv`)}>
+          📤 Exportar ({votantes.length})
+        </Btn>
         <Btn onClick={() => setModal({ mode:"add" })}>+ Registrar votante</Btn>
       </div>
 
@@ -398,6 +558,13 @@ export default function GestionVotantes() {
           nombre={confirm.nombre}
           onConfirm={() => deleteVotante(confirm.id)}
           onClose={() => setConfirm(null)}
+        />
+      )}
+      {showImport && (
+        <ModalImportar
+          votantesActuales={votantes}
+          onImportar={addVotantesBulk}
+          onClose={() => setShowImport(false)}
         />
       )}
     </div>

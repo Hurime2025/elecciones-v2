@@ -9,14 +9,14 @@ const GOBERNADOR_INIT = {
 };
 
 const CANDIDATOS_INIT = [
-  { id:"C-01", nombre:"Carlos Martínez Ruiz",   cargo:"Alcalde",     municipio:"Sincelejo",  color:"#3b82f6", meta:16000 },
-  { id:"C-02", nombre:"Yenis Álvarez Torres",   cargo:"Alcalde",     municipio:"Corozal",    color:"#06b6d4", meta:10000 },
-  { id:"C-03", nombre:"Hernando Soto Luna",     cargo:"Alcalde",     municipio:"San Marcos", color:"#0ea5e9", meta:7500  },
-  { id:"C-04", nombre:"Rosa Mendoza Pérez",     cargo:"Concejal",    municipio:"Sincelejo",  color:"#10b981", meta:4000  },
-  { id:"C-05", nombre:"Álvaro Díaz Herrera",    cargo:"Concejal",    municipio:"Sincelejo",  color:"#34d399", meta:3500  },
-  { id:"C-06", nombre:"Marta Salas Quintero",   cargo:"Concejal",    municipio:"Corozal",    color:"#6ee7b7", meta:2200  },
-  { id:"C-07", nombre:"Jorge Ríos Castellanos", cargo:"Asambleísta", municipio:"Sucre",      color:"#a78bfa", meta:6500  },
-  { id:"C-08", nombre:"Lina Cure Montoya",      cargo:"Asambleísta", municipio:"Sucre",      color:"#c4b5fd", meta:5000  },
+  { id:"C-01", nombre:"Carlos Martínez Ruiz",   cargo:"Alcalde",     municipio:"Sincelejo",  color:"#3b82f6", meta:16000, censo:180000, contrarios:[{nombre:"Opositor A",votos:14000},{nombre:"Opositor B",votos:9500}] },
+  { id:"C-02", nombre:"Yenis Álvarez Torres",   cargo:"Alcalde",     municipio:"Corozal",    color:"#06b6d4", meta:10000, censo:95000,  contrarios:[{nombre:"Opositor A",votos:8500}] },
+  { id:"C-03", nombre:"Hernando Soto Luna",     cargo:"Alcalde",     municipio:"San Marcos", color:"#0ea5e9", meta:7500,  censo:62000,  contrarios:[{nombre:"Opositor A",votos:6000}] },
+  { id:"C-04", nombre:"Rosa Mendoza Pérez",     cargo:"Concejal",    municipio:"Sincelejo",  color:"#10b981", meta:4000,  censo:180000, contrarios:[{nombre:"Lista B",votos:3800},{nombre:"Lista C",votos:2900}] },
+  { id:"C-05", nombre:"Álvaro Díaz Herrera",    cargo:"Concejal",    municipio:"Sincelejo",  color:"#34d399", meta:3500,  censo:180000, contrarios:[{nombre:"Lista B",votos:3800},{nombre:"Lista C",votos:2900}] },
+  { id:"C-06", nombre:"Marta Salas Quintero",   cargo:"Concejal",    municipio:"Corozal",    color:"#6ee7b7", meta:2200,  censo:95000,  contrarios:[{nombre:"Lista B",votos:2100}] },
+  { id:"C-07", nombre:"Jorge Ríos Castellanos", cargo:"Asambleísta", municipio:"Sucre",      color:"#a78bfa", meta:6500,  censo:900000, contrarios:[{nombre:"Bloque A",votos:5800},{nombre:"Bloque B",votos:4200}] },
+  { id:"C-08", nombre:"Lina Cure Montoya",      cargo:"Asambleísta", municipio:"Sucre",      color:"#c4b5fd", meta:5000,  censo:900000, contrarios:[{nombre:"Bloque A",votos:5800},{nombre:"Bloque B",votos:4200}] },
 ];
 
 const LIDERES_INIT = [
@@ -109,6 +109,12 @@ export function AppProvider({ children }) {
   };
   const updateVotante = (v) => setVotantes(p => p.map(x => x.id === v.id ? v : x));
   const deleteVotante = (id) => setVotantes(p => p.filter(x => x.id !== id));
+  // Importación masiva: recibe array de votantes sin id
+  const addVotantesBulk = (lista) => {
+    const ts = Date.now();
+    const nuevos = lista.map((v, i) => ({ ...v, id:`V-${ts}-${i}` }));
+    setVotantes(p => [...p, ...nuevos]);
+  };
 
   // ── USUARIOS ─────────────────────────────────────────
   const addUsuario    = (u)  => setUsuarios(p => [...p, { ...u, id:`U-${String(Date.now()).slice(-4)}` }]);
@@ -121,7 +127,7 @@ export function AppProvider({ children }) {
       gobernador,
       candidatos, addCandidato, updateCandidato, deleteCandidato,
       lideres,    addLider,    updateLider,    deleteLider,
-      votantes,   addVotante,  updateVotante,  deleteVotante,
+      votantes,   addVotante,  updateVotante,  deleteVotante, addVotantesBulk,
       usuarios,   addUsuario,  updateUsuario,  deleteUsuario, toggleActivo,
       currentUser, login, logout,
     }}>

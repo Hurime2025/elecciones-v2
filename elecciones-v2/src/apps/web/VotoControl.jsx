@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "../../context/AppContext";
 import GestionUsuarios from "./views/GestionUsuarios";
 import GestionVotantes from "./views/GestionVotantes";
+import DashboardMonitoreo from "./views/DashboardMonitoreo";
 
 // ═══════════════════════════════════════════════════════════════
 // DATA MODEL — Shared Voter Base + 3-Level Hierarchy
@@ -762,7 +763,7 @@ function ModalMensaje({ target, onClose }) {
 // ROOT APP
 // ═══════════════════════════════════════════════════════════════
 export default function App() {
-  const [view,    setView]    = useState("estructura");
+  const [view,    setView]    = useState("dashboard");
   const [msgTarget, setMsg]   = useState(null);
 
   const { votantes: votantesCtx, usuarios, currentUser, logout } = useApp();
@@ -770,6 +771,7 @@ export default function App() {
   const handleLogout = () => { logout(); navigate("/login", { replace: true }); };
 
   const TABS = [
+    { id:"dashboard",       icon:"📊", label:"Dashboard"     },
     { id:"estructura",      icon:"🏛️", label:"Estructura"    },
     { id:"votantes",        icon:"👥", label:"Votantes"      },
     { id:"lideres",         icon:"🤝", label:"Líderes"       },
@@ -838,8 +840,8 @@ export default function App() {
             <button key={t.id} onClick={()=>setView(t.id)}
               style={{ display:"flex", alignItems:"center", justifyContent:"space-between", width:"100%", padding:"11px 18px",
                 background:view===t.id ? (t.section==="admin"?"#7c3aed18":"#f59e0b15") : "transparent",
-                borderLeft:`3px solid ${view===t.id ? (t.section==="admin"?"#7c3aed":"#f59e0b") : "transparent"}`,
-                border:"none", borderTop:"none", borderRight:"none", borderBottom:"none",
+                border:"none",
+                boxShadow: view===t.id ? `inset 3px 0 0 ${t.section==="admin"?"#7c3aed":"#f59e0b"}` : "none",
                 color:view===t.id ? "#fff" : "#4b6080",
                 fontSize:12, fontWeight:view===t.id?700:400, cursor:"pointer", textAlign:"left", transition:"all .15s",
               }}>
@@ -875,6 +877,7 @@ export default function App() {
             </h1>
           </div>
 
+          {view==="dashboard"   && <DashboardMonitoreo/>}
           {view==="estructura"  && <ViewEstructura   onOpenMsg={setMsg}/>}
           {view==="votantes"    && <ViewVotantes     onOpenMsg={setMsg}/>}
           {view==="lideres"     && <ViewLideres      onOpenMsg={setMsg}/>}
