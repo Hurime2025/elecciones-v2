@@ -407,18 +407,80 @@ function ScreenDetalle({ votante, onBack, onUpdate, onNovedad }) {
   );
 }
 
+// ─── MODAL: Duplicado móvil ─────────────────────────────
+function ModalDupMovil({ votante, onClose }) {
+  const em = ESTADO_META[votante.estado] ?? ESTADO_META.no_contactado;
+  return (
+    <div style={{ position:"fixed", inset:0, background:"#00000095", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:"#0d1b3e", border:"2px solid #f59e0b", borderRadius:20, width:"100%", maxWidth:340, padding:24 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:"#f59e0b", letterSpacing:".06em" }}>⚠ CÉDULA YA REGISTRADA</div>
+            <div style={{ fontSize:15, fontWeight:800, color:"#fff", marginTop:3 }}>Votante encontrado</div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}>✕</button>
+        </div>
+        <div style={{ background:"#060c1a", borderRadius:12, padding:14, marginBottom:14 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:"#fff", marginBottom:4 }}>{votante.nombre}</div>
+          <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+            <span style={{ fontSize:12, color:"#94a3b8" }}>CC {votante.cedula}</span>
+            <span style={{ fontSize:12, color:"#25d366" }}>📱 {votante.phone}</span>
+          </div>
+          {votante.barrio && (
+            <div style={{ fontSize:11, color:"#4b6080", marginTop:6 }}>
+              {votante.barrio}{votante.puesto ? ` · ${votante.puesto} Mesa ${votante.mesa}` : ""}
+            </div>
+          )}
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+          <span style={{ fontSize:10, fontWeight:700, color:"#4b6080" }}>LÍDER ASIGNADO</span>
+        </div>
+        <div style={{ background:"#3b82f615", border:"1px solid #3b82f633", borderRadius:10, padding:"9px 14px", marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:16 }}>🤝</span>
+          <span style={{ fontSize:13, fontWeight:700, color:"#3b82f6" }}>{LIDER.nombre}</span>
+          <span style={{ fontSize:10, color:"#4b6080", marginLeft:2 }}>{LIDER.zona.length > 22 ? LIDER.zona.slice(0,22)+"…" : LIDER.zona}</span>
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+          <span style={{ fontSize:12, color:"#94a3b8" }}>Estado actual:</span>
+          <span style={{ background:em.bg, color:em.color, border:`1px solid ${em.color}44`, borderRadius:12, padding:"3px 12px", fontSize:11, fontWeight:700 }}>
+            {em.icon} {em.label}
+          </span>
+        </div>
+        <button onClick={onClose} style={{ width:"100%", background:"#1e3a6e", border:"none", borderRadius:12, padding:"13px", color:"#94a3b8", fontSize:13, fontWeight:700, cursor:"pointer" }}>
+          Entendido
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── SCREEN: AGREGAR VOTANTE ───────────────────────────
-function ScreenAgregar({ onSave, onBack }) {
+function ScreenAgregar({ votantes, onSave, onBack }) {
   const [form, setForm] = useState({ nombre:"", cedula:"", phone:"", barrio:"", puesto:"", mesa:"", estado:"pendiente", notas:"" });
   const [errors, setErrors] = useState({});
   const [done, setDone] = useState(false);
+  const [dupVotante, setDupVotante] = useState(null);
+  const [showDup, setShowDup] = useState(false);
 
   const set = (k,v) => setForm(p=>({...p,[k]:v}));
 
+  const handleCedulaChange = (e) => {
+    const cedula = e.target.value;
+    set("cedula", cedula);
+    if (cedula.length >= 5) {
+      const dup = votantes.find(v => v.cedula?.trim() === cedula.trim());
+      setDupVotante(dup ?? null);
+      if (dup) setShowDup(true);
+    } else {
+      setDupVotante(null);
+    }
+  };
+
   const validate = () => {
     const e = {};
-    if (!form.nombre.trim()) e.nombre = "Requerido";
     if (!form.cedula.trim()) e.cedula = "Requerido";
+    if (dupVotante)          e.cedula = "Cédula ya registrada";
+    if (!form.nombre.trim()) e.nombre = "Requerido";
     if (!form.phone.trim())  e.phone  = "Requerido";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -432,12 +494,11 @@ function ScreenAgregar({ onSave, onBack }) {
   };
 
   const fields = [
-    { k:"nombre", label:"Nombre completo",   placeholder:"Ej: María González",       type:"text",  req:true  },
-    { k:"cedula", label:"Cédula",            placeholder:"Ej: 10234567",             type:"tel",   req:true  },
-    { k:"phone",  label:"Teléfono / WhatsApp",placeholder:"Ej: 3001234567",          type:"tel",   req:true  },
-    { k:"barrio", label:"Barrio / Vereda",   placeholder:"Ej: Centro",               type:"text",  req:false },
-    { k:"puesto", label:"Puesto de votación",placeholder:"Ej: IE Simón Bolívar",     type:"text",  req:false },
-    { k:"mesa",   label:"Mesa",              placeholder:"Ej: 12",                   type:"tel",   req:false },
+    { k:"nombre", label:"Nombre completo",    placeholder:"Ej: María González",   type:"text", req:true  },
+    { k:"phone",  label:"Teléfono / WhatsApp", placeholder:"Ej: 3001234567",       type:"tel",  req:true  },
+    { k:"barrio", label:"Barrio / Vereda",     placeholder:"Ej: Centro",           type:"text", req:false },
+    { k:"puesto", label:"Puesto de votación",  placeholder:"Ej: IE Simón Bolívar", type:"text", req:false },
+    { k:"mesa",   label:"Mesa",                placeholder:"Ej: 12",               type:"tel",  req:false },
   ];
 
   if (done) return (
@@ -449,12 +510,42 @@ function ScreenAgregar({ onSave, onBack }) {
   );
 
   return (
+    <>
     <div style={{ padding:"0 16px 80px" }}>
-      <button onClick={onBack} style={{ background:"none", border:"none", color:"#3b82f6", fontSize:13, fontWeight:700, cursor:"pointer", padding:"16px 0 12px" }}>
-        ← Cancelar
-      </button>
-      <div style={{ fontSize:18, fontWeight:900, color:"#fff", marginBottom:20 }}>Nuevo votante</div>
+      {/* Header con título y botón cerrar */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"16px 0 20px" }}>
+        <div style={{ fontSize:18, fontWeight:900, color:"#fff" }}>Nuevo votante</div>
+        <button onClick={onBack} style={{ background:"#ef444420", border:"1px solid #ef444444", borderRadius:10, width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center", color:"#ef4444", fontSize:16, cursor:"pointer" }}>✕</button>
+      </div>
 
+      {/* Cédula — primero para detectar duplicados al instante */}
+      <div style={{ marginBottom:14 }}>
+        <div style={{ fontSize:10, color: errors.cedula ? "#ef4444" : "#475569", fontWeight:700, marginBottom:5 }}>
+          CÉDULA <span style={{ color:"#ef4444" }}>*</span>
+        </div>
+        <input
+          value={form.cedula}
+          onChange={handleCedulaChange}
+          placeholder="Ej: 10234567"
+          type="tel"
+          style={{ width:"100%", background:"#0d1b3e", border:`1px solid ${dupVotante ? "#ef4444" : errors.cedula ? "#ef4444" : "#1e3a6e"}`,
+            borderRadius:12, padding:"13px 14px", color:"#e2e8f0", fontSize:14, outline:"none", boxSizing:"border-box" }}
+        />
+        {dupVotante && (
+          <div style={{ marginTop:8, background:"#ef444415", border:"1px solid #ef444444", borderRadius:10, padding:"10px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:"#ef4444" }}>⚠ Cédula ya registrada</div>
+              <div style={{ fontSize:12, color:"#94a3b8", marginTop:2 }}>{dupVotante.nombre}</div>
+            </div>
+            <button onClick={() => setShowDup(true)} style={{ background:"#ef444420", border:"1px solid #ef444455", borderRadius:8, padding:"5px 10px", fontSize:11, fontWeight:700, color:"#ef4444", cursor:"pointer" }}>
+              Ver →
+            </button>
+          </div>
+        )}
+        {errors.cedula && !dupVotante && <div style={{ fontSize:10, color:"#ef4444", marginTop:3 }}>⚠️ {errors.cedula}</div>}
+      </div>
+
+      {/* Resto de campos */}
       {fields.map(f=>(
         <div key={f.k} style={{ marginBottom:14 }}>
           <div style={{ fontSize:10, color: errors[f.k]?"#ef4444":"#475569", fontWeight:700, marginBottom:5 }}>
@@ -493,12 +584,19 @@ function ScreenAgregar({ onSave, onBack }) {
             padding:"13px 14px", color:"#e2e8f0", fontSize:13, resize:"none", outline:"none", boxSizing:"border-box" }}/>
       </div>
 
-      <button onClick={submit}
-        style={{ width:"100%", background:"linear-gradient(135deg,#10b981,#059669)", border:"none",
-          borderRadius:14, padding:"15px", color:"#fff", fontSize:15, fontWeight:900, cursor:"pointer" }}>
+      <button onClick={submit} disabled={!!dupVotante}
+        style={{ width:"100%", background: dupVotante ? "#1e3a6e" : "linear-gradient(135deg,#10b981,#059669)", border:"none",
+          borderRadius:14, padding:"15px", color: dupVotante ? "#475569" : "#fff",
+          fontSize:15, fontWeight:900, cursor: dupVotante ? "not-allowed" : "pointer" }}>
         ✅ Registrar votante
       </button>
     </div>
+
+    {/* Modal duplicado */}
+    {showDup && dupVotante && (
+      <ModalDupMovil votante={dupVotante} onClose={() => setShowDup(false)} />
+    )}
+    </>
   );
 }
 
@@ -746,6 +844,10 @@ export default function LiderMovil() {
             <div style={{ background:"#f59e0b18", border:"1px solid #f59e0b40", borderRadius:8, padding:"4px 10px" }}>
               <span style={{ fontSize:10, fontWeight:800, color:"#f59e0b" }}>{votantes.length} votantes</span>
             </div>
+            <button onClick={() => navigate("/control")} title="Volver al dashboard"
+              style={{ background:"#1e3a6e40", border:"1px solid #1e3a6e", borderRadius:8, width:30, height:30, display:"flex", alignItems:"center", justifyContent:"center", color:"#64748b", fontSize:14, cursor:"pointer" }}>
+              ✕
+            </button>
             <button onClick={handleLogout} title="Cerrar sesión"
               style={{ background:"#ef444420", border:"1px solid #ef444444", borderRadius:8, padding:"4px 8px", color:"#ef4444", fontSize:11, cursor:"pointer" }}>
               ⏏
@@ -758,7 +860,7 @@ export default function LiderMovil() {
           {screen==="home"     && <ScreenHome     votantes={votantes} onNav={s=>nav(s)}/>}
           {screen==="votantes" && <ScreenVotantes votantes={votantes} onEdit={v=>nav("detalle",v)} onSelect={v=>{setSelected(v);setScreen("detalle");}}/>}
           {screen==="detalle"  && selected && <ScreenDetalle votante={selected} onBack={()=>setScreen("votantes")} onUpdate={updateVotante} onNovedad={v=>nav("novedad",v)}/>}
-          {screen==="agregar"  && <ScreenAgregar onSave={addVotante} onBack={()=>setScreen("home")}/>}
+          {screen==="agregar"  && <ScreenAgregar votantes={votantes} onSave={addVotante} onBack={()=>setScreen("home")}/>}
           {screen==="novedad"  && <ScreenNovedad votante={novedadVot} onBack={()=>setScreen(novedadVot?"detalle":"home")} onSend={()=>{}}/>}
           {screen==="mensaje"  && <ScreenMensaje votantes={votantes} onBack={()=>setScreen("home")}/>}
         </div>

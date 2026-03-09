@@ -13,27 +13,148 @@ const BLANK_VOTANTE = {
   liderIds:[], campañas:["GOB"], estado:{},
 };
 
-// ─── Modal Formulario Votante ──────────────────────────────────
-function ModalVotante({ votante, onSave, onClose }) {
-  const { lideres, candidatos } = useApp();
-  const [form, setForm] = useState(votante ?? BLANK_VOTANTE);
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+// ─── Modal: Votante ya existe con esa cédula ───────────────────
+function ModalVotanteExistente({ votante, onClose }) {
+  const { lideres, candidatos, gobernador } = useApp();
+  const lidsAsig = lideres.filter(l => (votante.liderIds ?? []).includes(l.id));
 
-  const toggleLider = (id) => {
-    const cur = form.liderIds ?? [];
-    set("liderIds", cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
+  const nombreCampaña = (id) => {
+    if (id === "GOB") return `${gobernador?.nombre ?? "Gobernador"} (Gobernador)`;
+    const c = candidatos.find(x => x.id === id);
+    return c ? `${c.nombre} (${c.cargo})` : id;
   };
-
-  const toggleCampaña = (id) => {
-    const cur = form.campañas ?? [];
-    set("campañas", cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]);
-  };
-
-  const valid = form.nombre.trim() && form.cedula.trim() && form.phone.trim();
 
   return (
+    <div style={{ position:"fixed", inset:0, background:"#00000098", zIndex:1200, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+      <div style={{ background:"#0d1b3e", border:"2px solid #f59e0b", borderRadius:18, width:440, padding:28 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+          <div>
+            <div style={{ fontSize:11, fontWeight:700, color:"#f59e0b", letterSpacing:".06em" }}>⚠ CÉDULA YA REGISTRADA</div>
+            <h2 style={{ margin:"4px 0 0", fontSize:16, fontWeight:800, color:"#fff" }}>Votante encontrado</h2>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#64748b", fontSize:20, cursor:"pointer" }}>✕</button>
+        </div>
+
+        {/* Datos básicos */}
+        <div style={{ background:"#060c1a", borderRadius:12, padding:16, marginBottom:14 }}>
+          <div style={{ fontSize:16, fontWeight:800, color:"#fff", marginBottom:4 }}>{votante.nombre}</div>
+          <div style={{ display:"flex", gap:20 }}>
+            <span style={{ fontSize:12, color:"#94a3b8" }}>CC {votante.cedula}</span>
+            <span style={{ fontSize:12, color:"#25d366" }}>📱 {votante.phone}</span>
+          </div>
+          {(votante.barrio || votante.puesto) && (
+            <div style={{ fontSize:11, color:"#4b6080", marginTop:6 }}>
+              {votante.barrio && <span>{votante.barrio}</span>}
+              {votante.barrio && votante.puesto && <span> · </span>}
+              {votante.puesto && <span>{votante.puesto} Mesa {votante.mesa}</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Líder asignado */}
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#4b6080", marginBottom:6 }}>LÍDER ASIGNADO</div>
+          {lidsAsig.length === 0
+            ? <span style={{ fontSize:12, color:"#4b6080" }}>Sin líder</span>
+            : lidsAsig.map(l => (
+              <div key={l.id} style={{ background:"#3b82f615", border:"1px solid #3b82f633", borderRadius:8, padding:"7px 12px", marginBottom:4 }}>
+                <span style={{ fontSize:12, fontWeight:700, color:"#3b82f6" }}>{l.nombre}</span>
+                <span style={{ fontSize:11, color:"#4b6080", marginLeft:8 }}>{l.zona}</span>
+              </div>
+            ))
+          }
+        </div>
+
+        {/* Campañas */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:10, fontWeight:700, color:"#4b6080", marginBottom:6 }}>CAMPAÑAS ASIGNADAS</div>
+          {(votante.campañas ?? []).length === 0
+            ? <span style={{ fontSize:12, color:"#4b6080" }}>Sin campañas</span>
+            : (votante.campañas ?? []).map(cId => {
+              const est = votante.estado?.[cId] ?? "no_contactado";
+              const em  = ESTADO_META[est];
+              return (
+                <div key={cId} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"5px 0", borderBottom:"1px solid #1e3a6e20" }}>
+                  <span style={{ fontSize:12, color:"#e2e8f0" }}>{nombreCampaña(cId)}</span>
+                  <span style={{ background:em.bg, color:em.color, border:`1px solid ${em.color}44`, borderRadius:12, padding:"2px 10px", fontSize:10, fontWeight:700 }}>
+                    {em.label}
+                  </span>
+                </div>
+              );
+            })
+          }
+        </div>
+
+        <div style={{ display:"flex", justifyContent:"flex-end" }}>
+          <Btn onClick={onClose}>Entendido</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal Formulario Votante ──────────────────────────────────
+function ModalVotante({ votante, onSave, onClose }) {
+  const { lideres, candidatos, votantes } = useApp();
+  const [form, setForm] = useState(votante ?? BLANK_VOTANTE);
+  const [dupVotante, setDupVotante] = useState(null); // cédula duplicada encontrada
+  const [showDup,    setShowDup]    = useState(false);
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  // Verificar cédula duplicada al escribir
+  const handleCedulaChange = (e) => {
+    const cedula = e.target.value;
+    set("cedula", cedula);
+    if (cedula.length >= 5) {
+      const dup = votantes.find(v => v.cedula?.trim() === cedula.trim() && v.id !== votante?.id);
+      setDupVotante(dup ?? null);
+      if (dup) setShowDup(true); // abrir modal automáticamente
+    } else {
+      setDupVotante(null);
+    }
+  };
+
+  // Solo 1 líder por votante
+  const selectLider = (id) => {
+    const cur = form.liderIds ?? [];
+    set("liderIds", cur[0] === id ? [] : [id]);
+  };
+
+  // Solo 1 candidato por cargo (Alcalde, Concejal, Asambleísta)
+  const selectCampaña = (id, cargo) => {
+    const cur = form.campañas ?? [];
+    if (id === "GOB") {
+      // Gobernador: toggle simple
+      set("campañas", cur.includes("GOB") ? cur.filter(x => x !== "GOB") : [...cur, "GOB"]);
+    } else {
+      // Por cargo: deseleccionar cualquier otro del mismo tipo antes de seleccionar
+      const mismoCargo = candidatos.filter(c => c.cargo === cargo).map(c => c.id);
+      if (cur.includes(id)) {
+        set("campañas", cur.filter(x => x !== id));
+      } else {
+        set("campañas", [...cur.filter(x => !mismoCargo.includes(x)), id]);
+      }
+    }
+  };
+
+  // Grupos de campañas para renderizar en secciones
+  const grupos = [
+    { cargo:"GOB",         label:"Gobernador",    badge:"Solo 1", color:"#f59e0b",
+      items:[{ id:"GOB", nombre: "Gobernador Depto. Sucre" }] },
+    { cargo:"Alcalde",     label:"Alcalde",        badge:"Solo 1", color:"#3b82f6",
+      items: candidatos.filter(c => c.cargo === "Alcalde") },
+    { cargo:"Concejal",    label:"Concejal",       badge:"Solo 1", color:"#10b981",
+      items: candidatos.filter(c => c.cargo === "Concejal") },
+    { cargo:"Asambleísta", label:"Asambleísta",    badge:"Solo 1", color:"#a78bfa",
+      items: candidatos.filter(c => c.cargo === "Asambleísta") },
+  ];
+
+  const valid = form.nombre.trim() && form.cedula.trim() && form.phone.trim() && !dupVotante;
+
+  return (
+    <>
     <div style={{ position:"fixed", inset:0, background:"#00000090", zIndex:1000, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
-      <div style={{ background:"#0d1b3e", border:"1px solid #1e3a6e", borderRadius:18, width:560, maxHeight:"90vh", overflowY:"auto", padding:28 }}>
+      <div style={{ background:"#0d1b3e", border:"1px solid #1e3a6e", borderRadius:18, width:580, maxHeight:"90vh", overflowY:"auto", padding:28 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
           <h2 style={{ margin:0, fontSize:16, fontWeight:800, color:"#fff" }}>
             {votante ? "✏️ Editar votante" : "➕ Nuevo votante"}
@@ -42,17 +163,35 @@ function ModalVotante({ votante, onSave, onClose }) {
         </div>
 
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+          {/* Cédula — primero para detectar duplicados al instante */}
+          <div style={{ gridColumn:"1/-1" }}>
+            <Field label="Número de cédula">
+              <Input
+                value={form.cedula}
+                onChange={handleCedulaChange}
+                placeholder="10234567"
+                style={{ ...inputSt, borderColor: dupVotante ? "#ef4444" : "#1e3a6e" }}
+              />
+              {dupVotante && (
+                <div style={{ marginTop:6, background:"#ef444415", border:"1px solid #ef444444", borderRadius:8, padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <div>
+                    <div style={{ fontSize:11, fontWeight:700, color:"#ef4444" }}>⚠ Cédula ya registrada</div>
+                    <div style={{ fontSize:12, color:"#94a3b8", marginTop:2 }}>{dupVotante.nombre}</div>
+                  </div>
+                  <button onClick={() => setShowDup(true)} style={{ background:"#ef444420", border:"1px solid #ef444455", borderRadius:8, padding:"4px 10px", fontSize:11, fontWeight:700, color:"#ef4444", cursor:"pointer" }}>
+                    Ver info →
+                  </button>
+                </div>
+              )}
+            </Field>
+          </div>
+
           {/* Nombre completo */}
           <div style={{ gridColumn:"1/-1" }}>
             <Field label="Nombre completo">
               <Input value={form.nombre} onChange={e => set("nombre", e.target.value)} placeholder="Ej. María González López" />
             </Field>
           </div>
-
-          {/* Cédula */}
-          <Field label="Número de cédula">
-            <Input value={form.cedula} onChange={e => set("cedula", e.target.value)} placeholder="10234567" />
-          </Field>
 
           {/* Teléfono */}
           <Field label="Teléfono / WhatsApp">
@@ -76,20 +215,21 @@ function ModalVotante({ votante, onSave, onClose }) {
             </Field>
           </div>
 
-          {/* Líderes asignados */}
+          {/* Líder — solo 1 */}
           <div style={{ gridColumn:"1/-1" }}>
-            <Field label="Líderes asignados">
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4 }}>
+            <Field label="Líder asignado">
+              <div style={{ fontSize:10, color:"#4b6080", marginBottom:6 }}>Solo 1 líder por votante</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
                 {lideres.map(l => {
-                  const sel = (form.liderIds ?? []).includes(l.id);
+                  const sel = (form.liderIds ?? [])[0] === l.id;
                   return (
-                    <button key={l.id} onClick={() => toggleLider(l.id)} style={{
+                    <button key={l.id} onClick={() => selectLider(l.id)} style={{
                       padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer",
                       background: sel ? "#3b82f620" : "#060c1a",
                       border: `1px solid ${sel ? "#3b82f6" : "#1e3a6e"}`,
                       color: sel ? "#3b82f6" : "#64748b",
                     }}>
-                      {sel ? "✓ " : ""}{l.nombre}
+                      {sel ? "● " : "○ "}{l.nombre}
                     </button>
                   );
                 })}
@@ -97,24 +237,33 @@ function ModalVotante({ votante, onSave, onClose }) {
             </Field>
           </div>
 
-          {/* Campañas */}
+          {/* Campañas — agrupadas por cargo, solo 1 por tipo */}
           <div style={{ gridColumn:"1/-1" }}>
             <Field label="Campañas en que participa">
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:4 }}>
-                {/* GOB siempre disponible */}
-                {[{ id:"GOB", label:"Gobernador", color:"#f59e0b" }, ...candidatos.map(c => ({ id:c.id, label:`${c.nombre} (${c.cargo})`, color: c.color }))].map(camp => {
-                  const sel = (form.campañas ?? []).includes(camp.id);
-                  return (
-                    <button key={camp.id} onClick={() => toggleCampaña(camp.id)} style={{
-                      padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer",
-                      background: sel ? `${camp.color}20` : "#060c1a",
-                      border: `1px solid ${sel ? camp.color : "#1e3a6e"}`,
-                      color: sel ? camp.color : "#64748b",
-                    }}>
-                      {sel ? "✓ " : ""}{camp.label}
-                    </button>
-                  );
-                })}
+              <div style={{ display:"flex", flexDirection:"column", gap:12, marginTop:4 }}>
+                {grupos.map(gr => (
+                  <div key={gr.cargo}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                      <span style={{ fontSize:10, fontWeight:700, color:gr.color, letterSpacing:".05em" }}>{gr.label.toUpperCase()}</span>
+                      <span style={{ fontSize:9, background:`${gr.color}15`, color:gr.color, border:`1px solid ${gr.color}44`, borderRadius:10, padding:"1px 7px", fontWeight:700 }}>{gr.badge}</span>
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
+                      {gr.items.map(item => {
+                        const sel = (form.campañas ?? []).includes(item.id);
+                        return (
+                          <button key={item.id} onClick={() => selectCampaña(item.id, gr.cargo)} style={{
+                            padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer",
+                            background: sel ? `${gr.color}20` : "#060c1a",
+                            border: `1px solid ${sel ? gr.color : "#1e3a6e"}`,
+                            color: sel ? gr.color : "#64748b",
+                          }}>
+                            {sel ? "● " : "○ "}{item.nombre}{item.municipio ? ` · ${item.municipio}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </Field>
           </div>
@@ -128,6 +277,12 @@ function ModalVotante({ votante, onSave, onClose }) {
         </div>
       </div>
     </div>
+
+    {/* Modal info de votante duplicado */}
+    {showDup && dupVotante && (
+      <ModalVotanteExistente votante={dupVotante} onClose={() => setShowDup(false)} />
+    )}
+    </>
   );
 }
 
