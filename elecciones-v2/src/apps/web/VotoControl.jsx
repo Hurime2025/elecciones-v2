@@ -4,6 +4,7 @@ import { useApp } from "../../context/AppContext";
 import GestionUsuarios from "./views/GestionUsuarios";
 import GestionVotantes from "./views/GestionVotantes";
 import DashboardMonitoreo from "./views/DashboardMonitoreo";
+import ReportesPDF from "./views/ReportesPDF";
 
 // ═══════════════════════════════════════════════════════════════
 // DATA MODEL — Shared Voter Base + 3-Level Hierarchy
@@ -780,6 +781,7 @@ export default function App() {
     { id:"divider" },
     { id:"g_usuarios",      icon:"🔑", label:"Usuarios",      section:"admin" },
     { id:"g_votantes",      icon:"📋", label:"Padrón CRUD",   section:"admin" },
+    { id:"g_reportes",      icon:"📄", label:"Reportes PDF",  section:"admin" },
   ];
 
   const totalVots = votantesCtx.length;
@@ -885,6 +887,7 @@ export default function App() {
           {view==="mensajeria"  && <ViewMensajeria   onOpenMsg={setMsg}/>}
           {view==="g_usuarios"  && <GestionUsuarios/>}
           {view==="g_votantes"  && <GestionVotantes/>}
+          {view==="g_reportes"  && <ReportesPDF/>}
         </div>
       </div>
 
